@@ -1,0 +1,12 @@
+###Evaluation of Classification Models
+
+#Binary Classification: positive, negative [class, scores]
+
+##CONFUSION MATRIX: TP, FN, FP, TN
+* True Positive (TP): number of observations that are predicted positive and they are correct
+                accuracy = (TP + FN)/n
+                error = 1 - accuracy
+##RECALL/ SENSITIVITY
+
+
+##PRECISION/ POSITIVE PREDICTION VALUE (PPV)
