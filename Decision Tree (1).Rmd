@@ -1,0 +1,191 @@
+---
+title: "Decision Tree"
+author: "Nha"
+date: '2022-10-11'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r Problem 1 Load, combine and rename datasets}
+library(caret) 
+library(dplyr)
+library(rpart.plot)
+library(caTools)
+library(ggplot2)
+library(tidyr)
+library(outliers)
+library(corrplot)
+library(RColorBrewer)
+# IMPORTING THE DATASETS
+
+trainX <- read.csv("/Users/hoangnha218/Desktop/HW2//trainX.csv")
+trainY <- read.csv("/Users/hoangnha218/Desktop/HW2/trainY.csv")
+testX <- read.csv("/Users/hoangnha218/Desktop/HW2/testX.csv")
+testY <- read.csv("/Users/hoangnha218/Desktop/HW2/testY.csv")
+
+# RENAME ALL THE COLUMNS
+
+colnames(trainY) <- c('diagnosis')
+colnames(trainX) <- c('radius_mean', 'texture_mean','perimeter_mean','area_mean','smoothness_mean','compactness_mean','concavity_mean','concavity.points_mean','symmetry_mean','fractual.dimension_mean',
+                      'radius_se', 'texture_se','perimeter_se','area_se','smoothness_se','compactness_se','concavity_se','concavity.points_se','symmetry_se','fractual.dimension_se',
+                      'radius_worst', 'texture_worst','perimeter_worst','area_worst','smoothness_worst','compactness_worst','concavity_worst','concavity.points_worst','symmetry_worst','fractual.dimension_worst')
+
+colnames(testY) <- c('diagnosis')
+colnames(testX) <- c('radius_mean', 'texture_mean','perimeter_mean','area_mean','smoothness_mean','compactness_mean','concavity_mean','concavity.points_mean','symmetry_mean','fractual.dimension_mean',
+                     'radius_se', 'texture_se','perimeter_se','area_se','smoothness_se','compactness_se','concavity_se','concavity.points_se','symmetry_se','fractual.dimension_se',
+                     'radius_worst', 'texture_worst','perimeter_worst','area_worst','smoothness_worst','compactness_worst','concavity_worst','concavity.points_worst','symmetry_worst','fractual.dimension_worst')
+
+# USING `cbind()` FUNCTION TO COMBINE THE DATASETS
+data_train <-cbind(trainX, trainY)
+data_test <-cbind(testX, testY)
+```
+
+``` {r Problem 1 part a}
+
+# FINDING THW SUMMARY STATISTICS OF THESE COMBINED DATASETS
+
+#Structure of these data frames
+str(data_train) # 454 obs. of 31 variables 
+#str(data_test)  # 56 obs. of 31 variables
+
+#summary function to extract the 5 statistics values
+summary(data_train)
+#summary(data_test)
+
+# CHECKING FOR MISSING VALUES 
+sapply(data_train,function(x) sum(is.na(x))) #There are no missing values in all columns.
+
+# CHECKING FOR OUTLIERS BY ANALYZING BOXPLOT and Z-SCORES
+boxplot(data_train,las=2.6,vertical = TRUE,main = "Boxplot of train data")
+
+#z score tells how many standard deviations a given value is from the mean. We define an observation to be an outlier if it has a z-score less than -3 or greater than 3.
+#find absolute value of z-score for each value in each column
+z_scores <- as.data.frame(sapply(data_train, function(data_train) (abs(data_train-mean(data_train))/sd(data_train))))
+# remove rows that have at least one z-score with an absolute value greater than 3.
+finaltrain_data <- data_train[!rowSums(z_scores>3), ]
+boxplot(finaltrain_data,las=2.6,vertical = TRUE,main = "Boxplot of cleaned train data")
+number_of_outliers = dim(data_train) - dim(finaltrain_data)
+number_of_outliers # removed 56 outliers
+
+#check for high-correlated variables 
+corr_matrix <- round(cor(finaltrain_data), digits = 2)
+corrplot(corr_matrix, type = "upper",order = "hclust",col=brewer.pal(n=5, name= "RdYlBu"),tl.cex=0.5)
+
+#As seen in the heatmap, these variables concave_points_mean, concave_points_worst,concavity_mean, area_mean, radius_mean, perimeter_mean, area_worst, perimeter_worst, radius_worst have high correlations with the target variable "diagnosis" (correlation>0.75)
+
+# CONVERTING 'DIAGNOSIS' COLUMN TO FACTOR
+data_test$diagnosis <- as.factor(data_test$diagnosis)
+finaltrain_data$diagnosis <-as.factor(finaltrain_data$diagnosis)
+# It can be observed that "diagnosis" is the only categorical variable in the data. So we need to factorize this variable.
+```
+
+``` {r Problem 1 part b}
+tree_model <- rpart(formula =  diagnosis ~ ., data =  finaltrain_data, 
+                    parms = list(split = "information"), method = 'class')
+tree_model
+summary(tree_model)
+#PLOT DECISION TREE
+rpart.plot(tree_model, main="Decision Tree for Cancer Diagnosis")
+
+#EVALUATION
+feature_selection <- data.frame(importance = tree_model$variable.importance)
+tree_modelFS <- feature_selection %>%
+  tibble::rownames_to_column() %>% 
+  dplyr::rename("variable" = rowname) %>% 
+  dplyr::arrange(importance) 
+ 
+ggplot2::ggplot(tree_modelFS) +
+  geom_col(aes(x = variable, y = importance),
+           col = "black", show.legend = F) +
+           coord_flip() 
+```
+#Feature importance is calculated as the decrease in node impurity weighted by the probability of reaching that node. The higher the value is the more important the feature is.
+#The important features predicted are perimeter_worst, radius_worst, area_worst, perimeter_mean,area_mean,radius_mean (high importance value)
+#The number of leaves are 5
+
+``` {r Problem 1 part c}
+```
+MAJOR PREDICTORS
+#Major predictors suggested by the tree are Perimeter_worst, concave_points_mean and texture_worst. These are the major predictors because we are getting maximum information gain from each split
+#Yes, these major predictors are the same as the ones we observed in part [a] except for 'texture_worst', which was seen not to have a high correlation with the target variable (according to heatmap).
+
+
+``` {r Problem 1 part d}
+```
+#The two strong rules that describe who is likely to have cancers:
+#Rule 1: If perimeter_worst >=107 and concavity.points_mean >= 0.064, the probability of having a cancer is 100%.
+#Rule 2: If perimeter_worst >=107, concavity.points_mean < 0.064, and texture_worst >=20, the probability of having a cancer is 81%.
+
+``` {r Problem 1 part e}
+# TRAIN DATA MODEL PREDICTING 
+predtrain <-predict(tree_model, data_train, type = 'class')
+trainP <- table(data_train$diagnosis, predtrain)
+trainP
+
+# TEST DATA MODEL PREDICTING
+predtest <-predict(tree_model, data_test, type = 'class')
+testP <- table(data_test$diagnosis, predtest)
+testP
+
+# ACCURACY OF TRAIN DATA MODEL
+trainA <- sum(diag(trainP)) / sum(trainP)
+print(paste('Accuracy for train data model is', trainA))
+
+# ACCURACY OF TEST DATA MODEL
+testA <- sum(diag(testP)) / sum(testP)
+print(paste('Accuracy for test data model is', testA))
+
+#Accuracy for the train data is 95.15%
+#Accuracy for test data is 87.5%
+```
+``` {r Problem 1 part f}
+tree_model$cptable
+mincp_i <- which.min(tree_model$cptable[,'xerror'])
+mincp_i #To optimize tree size, we have to choose the lowest complexity parameters.
+optCP <- tree_model$cptable[mincp_i, 'CP']
+optCP
+tree_pruned <- prune(tree_model, cp= optCP)
+
+tree_bestmodel <- rpart(diagnosis ~ ., data=finaltrain_data,parms = list(split="information") ,method="class",
+             control = rpart.control( minsplit = 10, minbucket = 5, cp = 0.01))
+
+#PREDICTED Y LABELS
+pred <- predict(tree_bestmodel,data_test, type="class")
+pred
+
+#EVALUATE THE MODEL
+# ACCURACY OF TRAIN DATA MODEL
+predtrain_BM <- table(pred=predict(tree_bestmodel,finaltrain_data, type="class"), true=finaltrain_data$diagnosis)
+trainA_BM <- sum(diag(predtrain_BM)) / sum(predtrain_BM)
+trainA_BM
+print(paste('Accuracy for train data model is', trainA))
+
+# ACCURACY OF TEST DATA MODEL
+predtest_BM <- table(pred=predict(tree_bestmodel,data_test, type="class"), true=data_test$diagnosis)
+predtest_BM
+testA_BM <- sum(diag(predtest_BM)) / sum(predtest_BM)
+testA_BM
+print(paste('Accuracy for test data model is', trainA))
+
+#Accuracy for the train data is 98.74%
+#Accuracy for the test data is 94.64%
+
+```
+
+```{r Problem 1 part g}
+rpart.plot(tree_bestmodel, main="Best Possible Decision Tree Model for Cancer Diagnosis")
+
+#DECISION RULES
+#The model is split on 'Information gain'
+#The target variable 'Diagnosis' is the factor variable 
+# we use the complexity parameter of 0.01, min split of 10, min bucket of 5
+```

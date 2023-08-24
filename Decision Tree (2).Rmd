@@ -1,0 +1,106 @@
+---
+title: "Decision Tree"
+author: "Nha"
+date: '2022-10-11'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r Problem 2 part a}
+##Problem 2
+
+###########    A      ##########
+#uploading the zoo1.csv to zoo_train and
+#making the decision tree with milk as a classifier variablr
+#Train data
+zoo_train <- read.csv("/Users/hoangnha218/Desktop/HW2/zoo1.csv") 
+attach(zoo_train)
+
+zoo_train$Target1 <- as.factor(ifelse(milk =="TRUE", "Yes", "No"))
+data <- zoo_train[-5]
+library(rpart)
+tree_model1 <- rpart(Target1~ legs + toothed, data)
+print(tree_model1)
+rpart.rules(tree_model1)
+
+library(rpart.plot)
+rpart.plot(tree_model1)
+
+```
+``` {r Problem 2 part b}
+########    B     #########
+#DRAWING THE DESICION TREE 
+# WE HAVE 3 LEAVES IN OUR MODEL
+#AND THEN FINDING THE ACCCURACY FOR THE DATA
+
+
+tree_pred_class <- predict(tree_model1, zoo_train, type = "class")
+mean(tree_pred_class != zoo_train$Target1)
+
+tree_model3 <- rpart(Target1 ~ legs + toothed, zoo_train, parms = list(split = "information"), control = rpart.control(minbucket = 0, minsplit = 0, cp = 0))
+rpart.plot(tree_model3)
+
+# LOADING THE TEST DATA FOR FINDING ACCURACY
+zoo_test <- read.csv("/Users/hoangnha218/Desktop/HW2/zoo2.csv")
+attach(zoo_test)
+#View(zoo_train)
+
+zoo_test$Target <- as.factor(ifelse(milk =="TRUE", "Yes", "No"))
+
+data1 <- zoo_test[-5]
+library(rpart)
+tree_model2 <- rpart(Target~ eggs + legs, data1)
+
+print(tree_model2)
+rpart.rules(tree_model2)
+
+library(rpart.plot)
+rpart.plot(tree_model2)
+
+# PREDICT THE DATA
+tree_pred_class <- predict(tree_model2, zoo_test, type = "class")
+mean(tree_pred_class != zoo_test$Target)
+
+tree_pred_test <- predict(tree_model2, zoo_test, type = "class")
+base_error <- mean(tree_pred_test != zoo_test$Target)
+
+pred_test <- predict(tree_model3, zoo_test, type = "class")
+error_preprun <- mean(pred_test != zoo_test$Target)
+
+mincp_i <- which.min(tree_model3$cptable[, 'xerror']) 
+optCP <- tree_model3$cptable[mincp_i, "CP"]
+
+model_pruned  <- prune(tree_model3, cp = optCP)
+
+#accuracy of the data
+zoo_test$pred <- predict(model_pruned, zoo_test, type = "class")
+error_postprun <- mean(zoo_test$pred != zoo_test$Target)
+df <- data.frame(base_error, error_preprun, error_postprun)
+print(df)
+
+```
+``` {r Problem 2 part c}
+tree_model4 <- rpart(Target1~ legs + toothed, data, parms = list(split = "gini"), control = rpart.control(minbucket = 0, minsplit = 0, cp = 0))
+print(tree_model4)
+tree_model5 <- rpart(Target1~ legs + toothed, data, parms = list(split = "information"), control = rpart.control(minbucket = 15, minsplit = 45, cp = 1))
+print(tree_model5)
+tree_model6 <- rpart(Target1~ legs + toothed, data, parms = list(split = "information"), control = rpart.control(minbucket = 15, minsplit = 45, cp = 0))
+print(tree_model6)
+# if we change the cp values it shows the smallest change in tree model.
+# but if we change the minbucket and the minsplit value to the 15 and 45 it lessen the nodes of tree.
+```
+``` {r Problem 2 part d}
+#feather is best for the training model for 1R
+#milk has the best test model for 1R
+#so the milk yield best result
+
+```
